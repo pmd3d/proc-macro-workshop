@@ -6,8 +6,18 @@
 //             self.executable = Some(executable);
 //             self
 //         }
-//
-//         ...
+//         fn args(&mut self, args: Vec<String>) -> &mut Self {
+//              self.args = Some(args);
+//              self
+//          }
+//         fn env(&mut self, env: Vec<String>) -> &mut Self {
+//              self.args = Some(args);
+//              self
+//          }
+//         fn current_dir(&mut self, current_dir: String) -> &mut Self {
+//              self.args = Some(current_dir);
+//              self
+//          }
 //     }
 
 use derive_builder::Builder;
