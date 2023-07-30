@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput, Data, DataStruct, Fields, Type, PathArguments, GenericArgument, Attribute};
+use syn::{parse_macro_input, DeriveInput, Data, DataStruct, Fields, Type, PathArguments, GenericArgument};
 
 #[proc_macro_derive(Builder, attributes(builder))]
 pub fn derive(input: TokenStream) -> TokenStream {
@@ -38,11 +38,21 @@ pub fn derive(input: TokenStream) -> TokenStream {
     // Generate builder field initialization to None
     let builder_field_inits = fields.iter().map(|f| {
         let name = &f.ident;
-        quote! {
-            #name: None
+        let has_builder_each_attr = f.attrs.iter().any(|attr| {
+            attr.path.is_ident("builder") && attr.tokens.to_string().contains("each")
+        });
+    
+        if has_builder_each_attr {
+            quote! {
+                #name: Some(vec![])
+            }
+        } else {
+            quote! {
+                #name: None
+            }
         }
     });
-
+    
     // Generate builder methods
     let builder_methods = fields.iter().map(|f| {
         let name = &f.ident;
@@ -77,8 +87,8 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 let each_ident = syn::Ident::new(&each_name, proc_macro2::Span::call_site());
                 quote! {
                     fn #each_ident(&mut self, #each_ident: #inner_ty) -> &mut Self {
-                        if let Some(#name) = &mut self.#name {
-                            #name.push(#each_ident);
+                        if let Some(v) = &mut self.#name {
+                            v.push(#each_ident);
                         } else {
                             self.#name = Some(vec![#each_ident]);
                         }
@@ -115,8 +125,8 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 let each_ident = syn::Ident::new(&each_name, proc_macro2::Span::call_site());
                 quote! {
                     fn #each_ident(&mut self, #each_ident: #inner_ty) -> &mut Self {
-                        if let Some(#name) = &mut self.#name {
-                            #name.push(#each_ident);
+                        if let Some(v) = &mut self.#name {
+                            v.push(#each_ident);
                         } else {
                             self.#name = Some(vec![#each_ident]);
                         }
