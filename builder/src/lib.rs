@@ -35,24 +35,67 @@ pub fn derive(input: TokenStream) -> TokenStream {
         }
     });
     
-    // Generate builder field initialization to None
-    let builder_field_inits = fields.iter().map(|f| {
+    fn mk_err<T: quote::ToTokens>(t: T) -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
+        Err(syn::Error::new_spanned(t, "expected `builder(each = \"...\")`").to_compile_error())
+    }
+    
+    let builder_field_inits: Result<Vec<proc_macro2::TokenStream>, _> = fields.iter().map(|f| {
         let name = &f.ident;
-        let has_builder_each_attr = f.attrs.iter().any(|attr| {
-            attr.path.is_ident("builder") && attr.tokens.to_string().contains("each")
+    
+        let each_attr = f.attrs.iter().find_map(|attr| {
+            if attr.path.is_ident("builder") {
+                match attr.parse_meta() {
+                    Ok(syn::Meta::List(mut nvs)) => {
+                        if nvs.nested.len() != 1 {
+                            return Some(mk_err(nvs));
+                        }
+    
+                        match nvs.nested.pop().unwrap().into_value() {
+                            syn::NestedMeta::Meta(syn::Meta::NameValue(nv)) => {
+                                if nv.path.is_ident("each") {
+                                    Some(Ok(quote! {
+                                        #name: Some(vec![])
+                                    }))
+                                } else {
+                                    Some(mk_err(nvs))
+                                }
+                            },
+                            meta => {
+                                // nvs.nested[0] was not k = v
+                                return Some(mk_err(meta));
+                            }
+                        }
+                    }
+                    Ok(meta) => {
+                        // inside of #[] there was either just an identifier (`#[builder]`) or a key-value
+                        // mapping (`#[builder = "foo"]`), neither of which are okay.
+                        return Some(mk_err(meta));
+                    }
+                    Err(e) => {
+                        return Some(Err(e.to_compile_error()));
+                    }
+                }
+            } else {
+                None
+            }
         });
     
-        if has_builder_each_attr {
-            quote! {
+        match each_attr {
+            Some(Ok(_)) => Ok(quote! {
                 #name: Some(vec![])
-            }
-        } else {
-            quote! {
+            }),
+            Some(Err(error)) => Err(error),
+            None => Ok(quote! {
                 #name: None
-            }
+            }),
         }
-    });
+    }).collect();
     
+    let builder_field_inits = match builder_field_inits {
+        Ok(inits) => inits,
+        Err(e) => return e.into(),
+    };
+                    
     // Generate builder methods
     let builder_methods = fields.iter().map(|f| {
         let name = &f.ident;
