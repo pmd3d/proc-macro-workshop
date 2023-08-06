@@ -26,11 +26,11 @@ pub fn derive(input: TokenStream) -> TokenStream {
         
         if let Some(inner_ty) = extract_option_inner(ty) {
             quote! {
-                #name: Option<#inner_ty>
+                #name: std::option::Option<#inner_ty>
             }
         } else {
             quote! {
-                #name: Option<#ty>
+                #name: std::option::Option<#ty>
             }
         }
     });
@@ -54,7 +54,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                             syn::NestedMeta::Meta(syn::Meta::NameValue(nv)) => {
                                 if nv.path.is_ident("each") {
                                     Some(Ok(quote! {
-                                        #name: Some(vec![])
+                                        #name: std::option::Option::Some(vec![])
                                     }))
                                 } else {
                                     Some(mk_err(nvs))
@@ -82,11 +82,11 @@ pub fn derive(input: TokenStream) -> TokenStream {
     
         match each_attr {
             Some(Ok(_)) => Ok(quote! {
-                #name: Some(vec![])
+                #name: std::option::Option::Some(vec![])
             }),
             Some(Err(error)) => Err(error),
             None => Ok(quote! {
-                #name: None
+                #name: std::option::Option::None
             }),
         }
     }).collect();
@@ -130,10 +130,10 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 let each_ident = syn::Ident::new(&each_name, proc_macro2::Span::call_site());
                 quote! {
                     fn #each_ident(&mut self, #each_ident: #inner_ty) -> &mut Self {
-                        if let Some(v) = &mut self.#name {
+                        if let std::option::Option::Some(v) = &mut self.#name {
                             v.push(#each_ident);
                         } else {
-                            self.#name = Some(vec![#each_ident]);
+                            self.#name = std::option::Option::Some(vec![#each_ident]);
                         }
                         self
                     }
@@ -141,7 +141,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
             } else {
                 quote! {
                     fn #name(&mut self, #name: #inner_ty) -> &mut Self {
-                        self.#name = Some(#name);
+                        self.#name = std::option::Option::Some(#name);
                         self
                     }
                 }
@@ -168,10 +168,10 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 let each_ident = syn::Ident::new(&each_name, proc_macro2::Span::call_site());
                 quote! {
                     fn #each_ident(&mut self, #each_ident: #inner_ty) -> &mut Self {
-                        if let Some(v) = &mut self.#name {
+                        if let std::option::Option::Some(v) = &mut self.#name {
                             v.push(#each_ident);
                         } else {
-                            self.#name = Some(vec![#each_ident]);
+                            self.#name = std::option::Option::Some(vec![#each_ident]);
                         }
                         self
                     }
@@ -179,7 +179,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
             } else {
                 quote! {
                     fn #name(&mut self, #name: #ty) -> &mut Self {
-                        self.#name = Some(#name);
+                        self.#name = std::option::Option::Some(#name);
                         self
                     }
                 }
@@ -233,7 +233,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
         #[derive(Debug)]
         pub struct CommandBuilderError {
-            msg: String,
+            msg: std::string::String,
         }
 
         impl std::fmt::Display for CommandBuilderError {
@@ -244,8 +244,8 @@ pub fn derive(input: TokenStream) -> TokenStream {
         
         impl std::error::Error for CommandBuilderError {}
         
-        impl From<String> for CommandBuilderError {
-            fn from(s: String) -> Self {
+        impl From<std::string::String> for CommandBuilderError {
+            fn from(s: std::string::String) -> Self {
                 CommandBuilderError{ msg : s }
             }
         }
@@ -253,9 +253,9 @@ pub fn derive(input: TokenStream) -> TokenStream {
         impl CommandBuilder {
             #(#builder_methods)*
 
-            pub fn build(&mut self) -> Result<#name, Box<dyn std::error::Error>> {
+            pub fn build(&mut self) -> std::result::Result<#name, std::boxed::Box<dyn std::error::Error>> {
                 #(#build_fields)*
-                Ok(#build_struct)
+                std::result::Result::Ok(#build_struct)
             }            
         }
     };
